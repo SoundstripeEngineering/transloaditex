@@ -56,6 +56,8 @@ defmodule Transloaditex.Assembly do
       options = %{options | retries: retries - 1}
       create_assembly(options)
     end
+
+    response
   end
 
   def create_assembly(), do: {:error, "Missing or invalid parameters"}
@@ -127,7 +129,7 @@ defmodule Transloaditex.Assembly do
 
       TusClient.upload(
         Map.get(options, :tus_url),
-        file_path,
+        Path.absname(file_path),
         [
           {:max_retries, Map.get(options, :max_retries, @retries)},
           {:chunk_size, @chunk_size},

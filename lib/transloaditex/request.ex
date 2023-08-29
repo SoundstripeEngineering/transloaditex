@@ -71,14 +71,10 @@ defmodule Transloaditex.Request do
     url = get_full_url(path)
     payload = to_payload(data)
 
-    IO.inspect(payload, label: "PUTS::PAYLOAD")
-
     opts = [
       headers: @headers,
       form: payload
     ]
-
-    IO.inspect(opts, label: "opts")
 
     Transloaditex.Response.as_response(fn ->
       Req.put(url, opts)
