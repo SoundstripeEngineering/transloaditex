@@ -1,7 +1,7 @@
 defmodule Transloaditex.MixProject do
   use Mix.Project
 
-  @source_url "https://github.com"
+  @source_url "https://github.com/SoundstripeEngineering/transloaditex"
 
   def project do
     [
