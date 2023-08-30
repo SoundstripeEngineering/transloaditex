@@ -12,7 +12,7 @@ defmodule Transloaditex.Response do
   def new({:error, reason}), do: {:error, reason}
 
   @doc false
-  def status_code(response), do: response.status
+  def status_code(response), do: response.status_code
 
   @doc false
   def headers(response), do: response.headers

@@ -19,10 +19,15 @@ defmodule Transloaditex.MixProject do
       version: "0.1.0",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
+      elixirc_paths: elixirc_paths(Mix.env()),
       deps: deps(),
       docs: docs()
     ]
   end
+
+  # Specifies which paths to compile per environment.
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
@@ -42,7 +47,8 @@ defmodule Transloaditex.MixProject do
       {:req, "~> 0.3.11"},
       {:jason, "~> 1.4.0"},
       {:httpoison, "~> 2.0"},
-      {:ex_doc, "~> 0.27", only: :dev, runtime: false}
+      {:ex_doc, "~> 0.27", only: :dev, runtime: false},
+      {:mox, "~> 1.0.2", only: :test}
     ]
   end
 

@@ -1,10 +1,11 @@
 defmodule Transloaditex.Assembly do
-  alias Transloaditex.Request
   alias Transloaditex.Step
   alias Transloaditex.File
 
   @retries 5
   @chunk_size 5 * 1024 * 1024
+
+  def request, do: Application.get_env(:transloaditex, :request)
 
   @doc """
   Create a new assembly
@@ -28,7 +29,7 @@ defmodule Transloaditex.Assembly do
     response =
       if resumable do
         extra_data = %{"tus_num_expected_upload_files" => Jason.encode!(length(files))}
-        response = Request.post("/assemblies", %{steps: steps}, extra_data)
+        response = request().post("/assemblies", %{steps: steps}, extra_data)
 
         do_tus_upload(%{
           files: files,
@@ -39,7 +40,7 @@ defmodule Transloaditex.Assembly do
 
         response
       else
-        Request.post("/assemblies", %{steps: steps}, %{
+        request().post("/assemblies", %{steps: steps}, %{
           files: Jason.encode!(File.get_files(files))
         })
       end
@@ -74,9 +75,9 @@ defmodule Transloaditex.Assembly do
     An instance of `Transloaditex.Response`.
   """
   def get_assembly(assembly) do
-    url = Request.to_url("assemblies", assembly)
+    url = request().to_url("assemblies", assembly)
 
-    Request.get(url)
+    request().get(url)
   end
 
   def get_assembly(), do: {:error, "Missing or invalid argument. Provide an assembly if or url"}
@@ -94,7 +95,7 @@ defmodule Transloaditex.Assembly do
 
     An instance of `Transloaditex.Response`.
   """
-  def list_assemblies(params), do: Request.get("/assemblies", params)
+  def list_assemblies(params), do: request().get("/assemblies", params)
 
   def list_assemblies(), do: list_assemblies(%{})
 
@@ -110,9 +111,9 @@ defmodule Transloaditex.Assembly do
     An instance of `Transloaditex.Response`.
   """
   def cancel_assembly(assembly) do
-    url = Request.to_url("assemblies", assembly)
+    url = request().to_url("assemblies", assembly)
 
-    Request.delete(url)
+    request().delete(url)
   end
 
   def cancel_assembly(), do: {:error, "Missing parameter. Provide an assembly id or url"}

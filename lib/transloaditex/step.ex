@@ -13,11 +13,7 @@ defmodule Transloaditex.Step do
 
   def add_step(name, robot) when is_binary(name), do: add_step([], name, robot, %{})
 
-  def remove_step(steps, name) do
-    Enum.reject(steps, fn step ->
-      Map.has_key?(step, name)
-    end)
-  end
+  def remove_step(steps, name), do: Enum.reject(steps, &Map.has_key?(&1, name))
 
   def get_steps(steps), do: Enum.reduce(steps, %{}, &Map.merge/2)
 end
