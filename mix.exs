@@ -20,6 +20,13 @@ defmodule Transloaditex.MixProject do
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      test_coverage: [tool: ExCoveralls],
+      preferred_cli_env: [
+        coveralls: :test,
+        "coveralls.detail": :test,
+        "coveralls.post": :test,
+        "coveralls.html": :test
+      ],
       deps: deps(),
       docs: docs()
     ]
@@ -48,6 +55,7 @@ defmodule Transloaditex.MixProject do
       {:jason, "~> 1.4.0"},
       {:httpoison, "~> 2.0"},
       {:ex_doc, "~> 0.27", only: :dev, runtime: false},
+      {:excoveralls, "~> 0.17", only: :test},
       {:mox, "~> 1.0.2", only: :test}
     ]
   end
