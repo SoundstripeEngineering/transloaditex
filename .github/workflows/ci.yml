@@ -9,20 +9,30 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
       - name: Set up Elixir
-        uses: erlef/setup-beam@988e02bfe678367a02564f65ca2e37726dc0268f
+        uses: erlef/setup-beam@v1.15.4
         with:
           elixir-version: 1.15.2
           otp-version: 26.0.2
         env:
           ImageOS: ubuntu20
       - name: Restore dependencies cache
-        uses: actions/cache@v2
+        uses: actions/cache@v3
         with:
           path: deps
           key: ${{ runner.os }}-mix-${{ hashFiles('**/mix.lock') }}
           restore-keys: ${{ runner.os }}-mix-
+      - name: Cache compiled build
+        uses: actions/cache@v3
+        env:
+          cache-name: cache-compiled-build
+        with:
+          path: _build
+          key: ${{ runner.os }}-mix-${{ env.cache-name }}-${{ hashFiles('**/mix.lock', '_build/**/*') }}
+          restore-keys: |
+            ${{ runner.os }}-mix-${{ env.cache-name }}-
+            ${{ runner.os }}-mix-
       - name: Install dependencies
         run: mix deps.get
       - name: Run tests
