@@ -9,7 +9,7 @@
 [![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/transloaditex/)
 [![Total Download](https://img.shields.io/hexpm/dt/transloaditex.svg)](https://hex.pm/packages/transloaditex)
 [![License](https://img.shields.io/hexpm/l/transloaditex.svg)](https://github.com/WTTJ/transloaditex/blob/master/LICENSE.md)
-[![Last Updated](https://img.shields.io/github/last-commit/WTTJ/transloaditex.svg)](https://github.com/WTTJ/transloaditex/commits/master)
+[![Last Updated](https://img.shields.io/github/last-commit/SoundstripeEngineering/transloaditex.svg)](https://github.com/SoundstripeEngineering/transloaditex/commits/master)
 
 Transloaditex is an Elixir implmenetation of [Transloadit
 API](https://transloadit.com/docs/api/).
