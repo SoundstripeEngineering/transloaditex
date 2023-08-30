@@ -4,10 +4,15 @@
 
 # Transloaditex
 
+[![Elixir CI](https://github.com/SoundstripeEngineering/transloaditex/actions/workflows/ci.yml/badge.svg)](https://github.com/SoundstripeEngineering/transloaditex)
+[![Module Version](https://img.shields.io/hexpm/v/transloaditex.svg)](https://hex.pm/packages/transloaditex)
+[![Hex Docs](https://img.shields.io/badge/hex-docs-lightgreen.svg)](https://hexdocs.pm/transloaditex/)
+[![Total Download](https://img.shields.io/hexpm/dt/transloaditex.svg)](https://hex.pm/packages/transloaditex)
+[![License](https://img.shields.io/hexpm/l/transloaditex.svg)](https://github.com/WTTJ/transloaditex/blob/master/LICENSE.md)
+[![Last Updated](https://img.shields.io/github/last-commit/WTTJ/transloaditex.svg)](https://github.com/WTTJ/transloaditex/commits/master)
+
 Transloaditex is an Elixir implmenetation of [Transloadit
 API](https://transloadit.com/docs/api/).
-
-[![Coverage Status](https://coveralls.io/repos/github/SoundstripeEngineering/transloaditex/badge.svg?branch=master)](https://coveralls.io/github/SoundstripeEngineering/transloaditex?branch=master)
 
 ## Installation
 

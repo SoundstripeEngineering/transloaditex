@@ -43,6 +43,3 @@ jobs:
 
       - name: Run tests
         run: mix test
-
-      - name: Run Coveralls
-        run: MIX_ENV=test mix coveralls.github
