@@ -8,21 +8,13 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        otp: ["23.x", "24.x", "25.x"]
-        elixir: ["1.12.x", "1.13.x", "1.14.x", "1.15.x"]
-        exclude:
-          - elixir: 1.15.x
-            otp: 25.x
     steps:
       - uses: actions/checkout@v2
       - name: Set up Elixir
         uses: erlef/setup-beam@988e02bfe678367a02564f65ca2e37726dc0268f
         with:
-          elixir-version: ${{ matrix.elixir }}
-          otp-version: ${{ matrix.otp }}
+          elixir-version: 1.15.2
+          otp-version: 26.0.2
         env:
           ImageOS: ubuntu20
       - name: Restore dependencies cache
