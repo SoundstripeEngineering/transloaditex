@@ -7,6 +7,8 @@
 Transloaditex is an Elixir implmenetation of [Transloadit
 API](https://transloadit.com/docs/api/).
 
+[![Coverage Status](https://coveralls.io/repos/github/SoundstripeEngineering/transloaditex/badge.svg?branch=master)](https://coveralls.io/github/SoundstripeEngineering/transloaditex?branch=master)
+
 ## Installation
 
 The package can be installed by adding `transloaditex` to your list of dependencies in `mix.exs`:
