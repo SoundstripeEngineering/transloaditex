@@ -2,7 +2,8 @@ defmodule Transloaditex.Queue do
   @moduledoc """
   Transloaditex.Queue Description
   """
-  alias Transloaditex.Request
+
+  def request, do: Application.get_env(:transloaditex, :request)
 
   @doc """
   Get the list of currently used priority job slots
@@ -12,6 +13,6 @@ defmodule Transloaditex.Queue do
     An instance of `Transloaditex.Response`.
   """
   def get_job_slots() do
-    Request.get("/queues/job_slots")
+    request().get("/queues/job_slots")
   end
 end

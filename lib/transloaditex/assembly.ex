@@ -1,4 +1,5 @@
 defmodule Transloaditex.Assembly do
+  alias Transloaditex.Request
   alias Transloaditex.Step
   alias Transloaditex.File
 
@@ -74,12 +75,13 @@ defmodule Transloaditex.Assembly do
 
     An instance of `Transloaditex.Response`.
   """
-  def get_assembly(assembly) do
-    url = request().to_url("assemblies", assembly)
+  def get_assembly(assembly) when is_binary(assembly) do
+    url = Request.to_url("assemblies", assembly)
 
     request().get(url)
   end
 
+  def get_assembly(_), do: {:error, "Missing or invalid argument. Provide an assembly if or url"}
   def get_assembly(), do: {:error, "Missing or invalid argument. Provide an assembly if or url"}
 
   @doc """
@@ -111,7 +113,7 @@ defmodule Transloaditex.Assembly do
     An instance of `Transloaditex.Response`.
   """
   def cancel_assembly(assembly) do
-    url = request().to_url("assemblies", assembly)
+    url = Request.to_url("assemblies", assembly)
 
     request().delete(url)
   end

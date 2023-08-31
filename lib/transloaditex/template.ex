@@ -2,15 +2,17 @@ defmodule Transloaditex.Template do
   alias Transloaditex.Request
   alias Transloaditex.Step
 
+  def request, do: Application.get_env(:transloaditex, :request)
+
   @doc """
   ...
   """
-  def create_template(name, steps) when is_list(steps) do
+  def create_template(name, steps) when is_binary(name) and is_list(steps) do
     template = Step.get_steps(steps)
-    Request.post("/templates", %{name: name, template: template})
+    request().post("/templates", %{name: name, template: template})
   end
 
-  def create_template(_),
+  def create_template(_, _),
     do:
       {:error,
        "Missing or invalid arguments. Provide a name and either list of steps or JSON Encoded params"}
@@ -32,10 +34,16 @@ defmodule Transloaditex.Template do
 
     An instance of `Transloaditex.Response`.
   """
-  def update_template(template_id, data) when is_list(data) do
+  def update_template(template_id, data) when is_binary(template_id) and is_list(data) do
     template = %{steps: Step.get_steps(data)}
-    Request.put("/templates/#{template_id}", %{template: template})
+    request().put("/templates/#{template_id}", %{template: template})
   end
+
+  def update_template(_, _),
+    do: {:error, "Missing or invalid arguments. Provide a valid template id and list of steps"}
+
+  def update_template(),
+    do: {:error, "Missing or invalid arguments. Provide a valid template id and list of steps"}
 
   @doc """
   Get the template specified by template id or template url
@@ -51,10 +59,10 @@ defmodule Transloaditex.Template do
   def get_template(template) do
     url = Request.to_url("templates", template)
 
-    Request.get(url)
+    request().get(url)
   end
 
-  def get_template(), do: {:error, "Missing or invalid arguments. Provide an template id or url"}
+  def get_template(), do: {:error, "Missing arguments. Provide an template id or url"}
 
   @doc """
   Get the list of templates
@@ -69,7 +77,7 @@ defmodule Transloaditex.Template do
 
     An instance of `Transloaditex.Response`.
   """
-  def list_templates(params), do: Request.get("/templates", params)
+  def list_templates(params), do: request().get("/templates", params)
 
   def list_templates(), do: list_templates(%{})
 
@@ -84,13 +92,16 @@ defmodule Transloaditex.Template do
 
     An instance of `Transloaditex.Response`.
   """
-  def delete_template(template) do
+  def delete_template(template) when is_binary(template) do
     url = Request.to_url("templates", template)
-    Request.delete(url)
+    request().delete(url)
   end
 
+  def delete_template(_),
+    do: {:error, "Invalid argument. Provide a valid template url or template id"}
+
   def delete_template(),
-    do: {:error, "Missing or invalid argument. Provide a valid template url or template id"}
+    do: {:error, "Missing argument. Provide a valid template url or template id"}
 
   def get_template_id(name) when is_binary(name) do
     case list_templates() do

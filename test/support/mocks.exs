@@ -1,1 +1,1 @@
-Mox.defmock(RequestMock, for: Test.Support.RequestBehaviour)
+Mox.defmock(Transloaditex.RequestMock, for: Transloaditex.RequestBehaviour)

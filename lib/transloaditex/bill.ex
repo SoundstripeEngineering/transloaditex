@@ -1,5 +1,5 @@
 defmodule Transloaditex.Bill do
-  alias Transloaditex.Request
+  def request, do: Application.get_env(:transloaditex, :request)
 
   @doc """
   Get the bill for the specified month and year.
@@ -16,11 +16,12 @@ defmodule Transloaditex.Bill do
   def get_bill(month, year) when is_integer(month) and is_integer(year) do
     if month >= 1 and month <= 12 do
       month_str = month |> Integer.to_string() |> String.pad_leading(2, "0")
-      Request.get("/bill/#{year}-#{month_str}")
+      request().get("/bill/#{year}-#{month_str}")
     else
       {:error, "Invalid month"}
     end
   end
 
   def get_bill(_, _), do: {:error, "Month and year should be integers"}
+  def get_bill(), do: {:error, "Month and year should be integers"}
 end

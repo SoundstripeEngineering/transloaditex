@@ -1,4 +1,3 @@
 import Config
 
-# config :transloaditex, request: RequestBehaviorMock
-config :transloaditex, request: Transloaditex.Request
+config :transloaditex, request: Transloaditex.RequestMock
