@@ -15,52 +15,63 @@ defmodule Transloaditex.FileTest do
   ]
 
   describe "add_file/1" do
-    test "should add a file with default 'file' field name" do
+    # This test checks if the function correctly defaults to using "file" as the field name.
+    test "returns file list with default field name when no field name supplied" do
       files = File.add_file(@filename)
       assert files == [%{"file" => @filename}]
     end
   end
 
   describe "add_file/2" do
-    test "should add a file with a custom field name" do
+    # This test checks if the function correctly assigns the provided field name
+    test "returns file list with provided field name" do
       files = File.add_file(@filename, @custom_field)
       assert files == [%{@custom_field => @filename}]
     end
 
-    test "should add a file to an existing list with default field name" do
+    test "returns file list with default incremented field name when no field name supplied and default already exists" do
+      # This test checks if the function correctly assigns an incremented version
+      # of the default field name when the name already exists.
+      # In this case, `file` and `file_1` already exists, so it should return `file_2`
       files = File.add_file(@multiple_files, @filename)
       assert files == [%{"file_2" => @filename} | @multiple_files]
     end
   end
 
   describe "add_file/3" do
-    test "should add a file to an existing list with custom field name" do
+    # This test confirms the function correctly assigns an incremented version
+    # of the supplied field name.
+    test "returns file list with provided field name incremented because it already exists" do
       files = File.add_file(@single_file, @filename, @custom_field)
       assert files == [%{"custom_1" => @filename} | @single_file]
     end
   end
 
   describe "remove_file/2" do
-    test "should remove a file by its field name from an existing list" do
+    test "removes a file entry by field name" do
       new_files = File.remove_file(@multiple_files, "file")
       assert new_files == [%{"file_1" => "file2.jpg"}]
     end
 
-    test "should remove a file byt its file_path from an existing list" do
+    test "removes a file entry by file name" do
       new_files = File.remove_file(@multiple_files, "file2.jpg")
       assert new_files == [%{"file" => "file1.jpg"}]
     end
   end
 
   describe "get_files/1" do
-    test "should merge multiple file maps into a single map" do
+    test "merges all files into a single map" do
       merged_files = File.get_files(@multiple_files)
       assert merged_files == %{"file" => "file1.jpg", "file_1" => "file2.jpg"}
     end
   end
 
   describe "get_field_name/3" do
-    test "should return next unique field name in an existing list" do
+    test "returns unique field name" do
+      assert File.get_field_name(@single_file, "file") == "file"
+    end
+
+    test "returns a unique incremented field name" do
       assert File.get_field_name(@multiple_files, "file") == "file_2"
     end
   end

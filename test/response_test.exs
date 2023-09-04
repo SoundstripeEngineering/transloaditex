@@ -23,14 +23,18 @@ defmodule Transloaditex.ResponseTest do
   end
 
   describe "new/1" do
-    test "creates a new Response struct on valid input", %{test_function: test_function} do
+    test "returns a Transloaditex.Response struct when request is valid", %{
+      test_function: test_function
+    } do
       response = Response.new(test_function.())
       assert response.data == %{"key" => "value"}
       assert response.status_code == 200
       assert response.headers == [{"content-type", "application/json"}]
     end
 
-    test "returns an error tuple on error input", %{test_function_error: test_function_error} do
+    test "returns an error tuple when request returns an error", %{
+      test_function_error: test_function_error
+    } do
       assert Response.new(test_function_error.()) == {:error, :some_error_reason}
     end
   end
@@ -44,7 +48,9 @@ defmodule Transloaditex.ResponseTest do
   end
 
   describe "as_response/1" do
-    test "wraps function output into a Response struct", %{test_function: test_function} do
+    test "wraps function output into a Transloaditex.Response struct", %{
+      test_function: test_function
+    } do
       response = Response.as_response(test_function)
       assert response.data == %{"key" => "value"}
       assert response.status_code == 200

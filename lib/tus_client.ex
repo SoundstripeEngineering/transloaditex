@@ -4,6 +4,7 @@ defmodule TusClient do
 
   require Logger
 
+  @behaviour TusClient.Behaviour
   @type upload_error ::
           :file_error
           | :generic

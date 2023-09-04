@@ -7,25 +7,31 @@ defmodule Transloaditex.StepTest do
   @robot "/test/optimize"
   @opts %{quality: 90}
 
-  describe "add_step/3, add_step/4" do
-    test "adds a step with options to an existing list of steps" do
-      steps = Step.add_step(@initial_steps, @name, @robot, @opts)
-      assert steps == [%{@name => %{robot: @robot, quality: 90}} | @initial_steps]
-    end
-
-    test "adds a step without options to an existing list of steps" do
-      steps = Step.add_step(@initial_steps, @name, @robot)
-      assert steps == [%{@name => %{robot: @robot}} | @initial_steps]
-    end
-
-    test "creates a new step with options when no initial steps are provided" do
+  # When a step list is not provided, returns a new step list
+  # with the new step added
+  describe "add_step/3, add_step/4 (first step)" do
+    test "returns step list with new step, with option, added" do
       steps = Step.add_step(@name, @robot, @opts)
       assert steps == [%{@name => %{robot: @robot, quality: 90}}]
     end
 
-    test "creates a new step without options when no initial steps are provided" do
+    test "returns step list with new step added" do
       steps = Step.add_step(@name, @robot)
       assert steps == [%{@name => %{robot: @robot}}]
+    end
+  end
+
+  # When a step list is provided, returns the existing list with
+  # the new step added
+  describe "add_step/3, add_step/4" do
+    test "returns step list with new step, with options, added" do
+      steps = Step.add_step(@initial_steps, @name, @robot, @opts)
+      assert steps == [%{@name => %{robot: @robot, quality: 90}} | @initial_steps]
+    end
+
+    test "returns step list with new step added" do
+      steps = Step.add_step(@initial_steps, @name, @robot)
+      assert steps == [%{@name => %{robot: @robot}} | @initial_steps]
     end
   end
 

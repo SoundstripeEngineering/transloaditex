@@ -8,6 +8,7 @@ defmodule Transloaditex.MixProject do
       app: :transloaditex,
       name: "transloaditex",
       description: "Elixir implementation of Transloadit API",
+      maintainers: ["Soundstripe"],
       package: %{
         licenses: ["MIT"],
         links: %{
@@ -16,7 +17,7 @@ defmodule Transloaditex.MixProject do
       },
       source_url: @source_url,
       homepage_url: @source_url,
-      version: "0.2.0",
+      version: "0.2.1",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -27,7 +28,8 @@ defmodule Transloaditex.MixProject do
           TusClient.Options,
           TusClient.Patch,
           TusClient.Post,
-          TusClient.Utils
+          TusClient.Utils,
+          TusClient.Behaviour
         ]
       ],
       deps: deps(),

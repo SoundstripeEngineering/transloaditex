@@ -110,24 +110,30 @@ defmodule Transloaditex.Request do
   end
 
   def to_url(endpoint, id) when is_binary(endpoint) and is_binary(id) do
-    case is_valid_id?(id) do
+    cond do
+      is_url?(id) ->
+        to_url(id)
+
       true ->
-        endpoint =
-          cond do
-            !String.starts_with?(endpoint, "/") -> "/" <> endpoint
-            true -> endpoint
-          end
+        case is_valid_id?(id) do
+          true ->
+            endpoint =
+              cond do
+                !String.starts_with?(endpoint, "/") -> "/" <> endpoint
+                true -> endpoint
+              end
 
-        endpoint =
-          cond do
-            !String.ends_with?(endpoint, "/") -> endpoint <> "/"
-            true -> endpoint
-          end
+            endpoint =
+              cond do
+                !String.ends_with?(endpoint, "/") -> endpoint <> "/"
+                true -> endpoint
+              end
 
-        "#{endpoint}#{id}"
+            "#{endpoint}#{id}"
 
-      false ->
-        {:error, "Invalid or missing parameters. Expecting valid url, or endpoint and id"}
+          false ->
+            {:error, "Invalid or missing parameters. Expecting valid url, or endpoint and id"}
+        end
     end
   end
 

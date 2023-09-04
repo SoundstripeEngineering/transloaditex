@@ -7,6 +7,7 @@ defmodule Transloaditex.Assembly do
   @chunk_size 5 * 1024 * 1024
 
   def request, do: Application.get_env(:transloaditex, :request)
+  def tus_client, do: Application.get_env(:transloaditex, :tus_adapter)
 
   @doc """
   Create a new assembly
@@ -21,45 +22,59 @@ defmodule Transloaditex.Assembly do
   """
 
   def create_assembly(options) do
-    steps = Step.get_steps(Map.get(options, :steps, []))
+    steps_opt = Map.get(options, :steps, [])
     files = Map.get(options, :files, [])
     wait = Map.get(options, :wait, false)
     resumable = Map.get(options, :resumable, true)
     retries = Map.get(options, :retries, @retries)
 
+    steps = Step.get_steps(steps_opt)
+
     response =
-      if resumable do
-        extra_data = %{"tus_num_expected_upload_files" => Jason.encode!(length(files))}
-        response = request().post("/assemblies", %{steps: steps}, extra_data)
+      case resumable do
+        true ->
+          extra_data = %{"tus_num_expected_upload_files" => Jason.encode!(length(files))}
+          response = request().post("/assemblies", %{steps: steps}, extra_data)
 
-        do_tus_upload(%{
-          files: files,
-          assembly_url: response.data["assembly_url"],
-          tus_url: response.data["tus_url"],
-          max_retries: retries
-        })
+          do_tus_upload(%{
+            files: files,
+            assembly_url: response.data["assembly_url"],
+            assembly_ssl_url: response.data["assembly_ssl_url"],
+            tus_url: response.data["tus_url"],
+            max_retries: retries
+          })
 
-        response
-      else
-        request().post("/assemblies", %{steps: steps}, %{
-          files: Jason.encode!(File.get_files(files))
-        })
+          response
+
+        false ->
+          request().post("/assemblies", %{steps: steps}, %{
+            files: Jason.encode!(File.get_files(files))
+          })
       end
 
-    if wait, do: wait_for_assembly_finish(response, @retries)
+    wait_result = if wait, do: wait_for_assembly_finish(response, retries), else: {:ok}
 
-    if rate_limit_reached(response) and retries > 0 do
-      sleep_time =
-        Map.get(response.data, "info", %{})
-        |> Map.get("retryIn", 1)
+    if wait_result == {:ok} do
+      case rate_limit_reached(response.data) and retries > 0 do
+        true ->
+          sleep_time = response.data["info"]["retryIn"] || 1
 
-      :timer.sleep(sleep_time * 1_000)
+          :timer.sleep(sleep_time * 1_000)
 
-      options = %{options | retries: retries - 1}
-      create_assembly(options)
+          create_assembly(%{
+            steps: steps_opt,
+            files: files,
+            wait: wait,
+            resumable: resumable,
+            retries: retries - 1
+          })
+
+        false ->
+          response
+      end
+    else
+      wait_result
     end
-
-    response
   end
 
   def create_assembly(), do: {:error, "Missing or invalid parameters"}
@@ -77,12 +92,11 @@ defmodule Transloaditex.Assembly do
   """
   def get_assembly(assembly) when is_binary(assembly) do
     url = Request.to_url("assemblies", assembly)
-
     request().get(url)
   end
 
-  def get_assembly(_), do: {:error, "Missing or invalid argument. Provide an assembly if or url"}
-  def get_assembly(), do: {:error, "Missing or invalid argument. Provide an assembly if or url"}
+  def get_assembly(_), do: {:error, "Missing or invalid argument. Provide an assembly id or url"}
+  def get_assembly(), do: {:error, "Missing or invalid argument. Provide an assembly id or url"}
 
   @doc """
   Get the list of assemblies.
@@ -126,11 +140,12 @@ defmodule Transloaditex.Assembly do
 
       metadata = %{
         assembly_url: Map.get(options, :assembly_url),
+        assembly_ssl_url: Map.get(options, :assembly_ssl_url),
         fieldname: field_name,
         filename: Path.basename(file_path)
       }
 
-      TusClient.upload(
+      tus_client().upload(
         Map.get(options, :tus_url),
         Path.absname(file_path),
         [
@@ -146,7 +161,7 @@ defmodule Transloaditex.Assembly do
     do: {:error, "Max retries reached without completion."}
 
   defp wait_for_assembly_finish(response, retries) when retries > 0 do
-    if !assembly_finished(response) do
+    if !assembly_finished?(response) do
       sleep_time =
         Map.get(response.data, "info", %{})
         |> Map.get("retryIn", 1)
@@ -154,18 +169,17 @@ defmodule Transloaditex.Assembly do
       :timer.sleep(sleep_time * 1_000)
 
       response = get_assembly(Map.get(response.data, "assembly_ssl_url"))
-
       wait_for_assembly_finish(response, retries - 1)
     else
       {:ok}
     end
   end
 
-  defp assembly_finished(response) do
-    status = Map.get(response, "ok")
+  defp assembly_finished?(response) do
+    status = Map.get(response.data, "ok")
     is_aborted = status == "REQUEST_ABORTED"
     is_canceled = status == "ASSEMBLY_CANCELED"
-    is_completed = status == "ASSEUMBLY_COMPLETED"
+    is_completed = status == "ASSEMBLY_COMPLETED"
     error = Map.get(response, "error")
     is_failed = !is_nil(error)
     is_fetch_rate_limit = error == "ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED"
