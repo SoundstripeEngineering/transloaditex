@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="../transloadit-logo.png" />
+  <img src="https://raw.githubusercontent.com/SoundstripeEngineering/transloaditex/master/transloadit-logo.png" alt="Transloadit Logo"/>
 </p>
 
 # Transloaditex
