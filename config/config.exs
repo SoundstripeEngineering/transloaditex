@@ -1,8 +1,5 @@
 import Config
 
-config :transloaditex, request: Transloaditex.Request
-config :transloaditex, tus_adapter: TusClient
-
 config :transloaditex,
   auth_key: System.get_env("TRANSLOADIT_AUTH_KEY"),
   auth_secret: System.get_env("TRANSLOADIT_AUTH_SECRET"),
