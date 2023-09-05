@@ -33,18 +33,22 @@ defmodule Transloaditex.Assembly do
     response =
       case resumable do
         true ->
-          extra_data = %{"tus_num_expected_upload_files" => Jason.encode!(length(files))}
-          response = request().post("/assemblies", %{steps: steps}, extra_data)
+          if length(files) > 0 do
+            extra_data = %{"tus_num_expected_upload_files" => Jason.encode!(length(files))}
+            response = request().post("/assemblies", %{steps: steps}, extra_data)
 
-          do_tus_upload(%{
-            files: files,
-            assembly_url: response.data["assembly_url"],
-            assembly_ssl_url: response.data["assembly_ssl_url"],
-            tus_url: response.data["tus_url"],
-            max_retries: retries
-          })
+            do_tus_upload(%{
+              files: files,
+              assembly_url: response.data["assembly_url"],
+              assembly_ssl_url: response.data["assembly_ssl_url"],
+              tus_url: response.data["tus_url"],
+              max_retries: retries
+            })
 
-          response
+            response
+          else
+            request().post("/assemblies", %{steps: steps})
+          end
 
         false ->
           request().post("/assemblies", %{steps: steps}, %{
