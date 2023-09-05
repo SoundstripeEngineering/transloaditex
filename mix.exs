@@ -17,7 +17,7 @@ defmodule Transloaditex.MixProject do
       },
       source_url: @source_url,
       homepage_url: @source_url,
-      version: "0.2.3",
+      version: "0.2.4",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
