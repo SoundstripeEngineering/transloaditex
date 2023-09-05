@@ -2,7 +2,7 @@ defmodule Transloaditex.Template do
   alias Transloaditex.Request
   alias Transloaditex.Step
 
-  def request, do: Application.get_env(:transloaditex, :request)
+  def request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
 
   @doc """
   ...

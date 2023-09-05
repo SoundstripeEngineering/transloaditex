@@ -3,7 +3,7 @@ defmodule Transloaditex.Queue do
   Transloaditex.Queue Description
   """
 
-  def request, do: Application.get_env(:transloaditex, :request)
+  def request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
 
   @doc """
   Get the list of currently used priority job slots

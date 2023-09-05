@@ -6,8 +6,8 @@ defmodule Transloaditex.Assembly do
   @retries 5
   @chunk_size 5 * 1024 * 1024
 
-  def request, do: Application.get_env(:transloaditex, :request)
-  def tus_client, do: Application.get_env(:transloaditex, :tus_adapter)
+  def request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
+  def tus_client, do: Application.get_env(:transloaditex, :tus_adapter, TusClient)
 
   @doc """
   Create a new assembly

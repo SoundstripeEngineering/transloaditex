@@ -1,5 +1,5 @@
 defmodule Transloaditex.Bill do
-  def request, do: Application.get_env(:transloaditex, :request)
+  def request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
 
   @doc """
   Get the bill for the specified month and year.
