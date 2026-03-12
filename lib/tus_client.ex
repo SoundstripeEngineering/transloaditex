@@ -21,10 +21,9 @@ defmodule TusClient do
           list(
             {:metadata, binary()}
             | {:max_retries, integer()}
-            | {:chunk_len, integer()}
+            | {:chunk_size, integer()}
             | {:headers, list()}
             | {:ssl, list()}
-            | {:follow_redirect, boolean()}
           )
         ) :: {:ok, binary} | {:error, upload_error()}
   def upload(base_url, path, opts \\ []) do
@@ -74,11 +73,10 @@ defmodule TusClient do
   end
 
   defp get_max_retries(opts) do
-    opts
-    |> Keyword.get(:max_retries, 3)
+    Keyword.get(opts, :max_retries, 3)
   end
 
   defp get_headers(opts) do
-    opts |> Keyword.get(:headers, [])
+    Keyword.get(opts, :headers, [])
   end
 end

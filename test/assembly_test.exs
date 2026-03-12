@@ -49,13 +49,12 @@ defmodule Transloaditex.AssemblyTest do
     }
   }
 
-  describe "create_assembly/0" do
-    test "is missing arguments" do
-      assert {:error, "Missing or invalid parameters"} == Transloaditex.Assembly.create_assembly()
-    end
-  end
-
   describe "create_assembly/1" do
+    test "returns error for non-map argument" do
+      assert {:error, "Missing or invalid parameters"} ==
+               Transloaditex.Assembly.create_assembly("bad")
+    end
+
     test "it is successful, non-resumable, no waiting" do
       Transloaditex.RequestMock
       |> expect(:post, fn path, steps, files ->
@@ -80,7 +79,7 @@ defmodule Transloaditex.AssemblyTest do
       assert @create_assembly_completed == response
     end
 
-    test "it is successful, non-resumable, waiting" do
+    test "it is successful, non-resumable, waiting returns completed response" do
       Transloaditex.RequestMock
       |> expect(:post, fn path, steps, files ->
         assert path == "/assemblies"
@@ -108,7 +107,7 @@ defmodule Transloaditex.AssemblyTest do
       }
 
       response = Transloaditex.Assembly.create_assembly(options)
-      assert @create_assembly_not_completed == response
+      assert @create_assembly_completed == response
     end
 
     test "it times out waiting, non-resumable, waiting" do
@@ -192,7 +191,7 @@ defmodule Transloaditex.AssemblyTest do
                  }
                ]
 
-        @create_assembly_completed
+        {:ok, "https://transloaditex.com/resumable/files/abc"}
       end)
 
       steps = Transloaditex.Step.add_step("resize", "/image/size", width: 70, height: 70)
@@ -209,7 +208,7 @@ defmodule Transloaditex.AssemblyTest do
       assert @create_assembly_not_completed == response
     end
 
-    test "it is successful, resumable, waiting" do
+    test "it is successful, resumable, waiting returns completed response" do
       Transloaditex.RequestMock
       |> expect(:post, fn path, steps, extra_data ->
         assert path == "/assemblies"
@@ -235,7 +234,7 @@ defmodule Transloaditex.AssemblyTest do
                  }
                ]
 
-        @create_assembly_completed
+        {:ok, "https://transloaditex.com/resumable/files/abc"}
       end)
 
       Transloaditex.RequestMock
@@ -263,14 +262,32 @@ defmodule Transloaditex.AssemblyTest do
       }
 
       response = Transloaditex.Assembly.create_assembly(options)
-      assert @create_assembly_not_completed == response
+      assert @create_assembly_completed == response
     end
-  end
 
-  describe "get_assembly/0" do
-    test "is missing argument" do
-      assert {:error, "Missing or invalid argument. Provide an assembly id or url"} ==
-               Transloaditex.Assembly.get_assembly()
+    test "it propagates TUS upload errors" do
+      Transloaditex.RequestMock
+      |> expect(:post, fn _path, _steps, _extra_data ->
+        @create_assembly_not_completed
+      end)
+
+      TusClientMock
+      |> expect(:upload, fn _base_url, _path, _options ->
+        {:error, :too_many_errors}
+      end)
+
+      steps = Transloaditex.Step.add_step("resize", "/image/size", width: 70, height: 70)
+      files = Transloaditex.File.add_file(@upload_file_path)
+
+      options = %{
+        steps: steps,
+        files: files,
+        wait: false,
+        resumable: true
+      }
+
+      response = Transloaditex.Assembly.create_assembly(options)
+      assert {:error, :too_many_errors} == response
     end
   end
 
@@ -347,12 +364,43 @@ defmodule Transloaditex.AssemblyTest do
       result = Transloaditex.Assembly.cancel_assembly("123abc")
       assert @success_response == result
     end
+
+    test "returns error for non-string argument" do
+      assert {:error, "Invalid argument. Provide an assembly id or url"} ==
+               Transloaditex.Assembly.cancel_assembly(123)
+    end
   end
 
-  describe "cancel_assembly/0" do
-    test "it is missing the argument" do
-      assert {:error, "Missing parameter. Provide an assembly id or url"} ==
-               Transloaditex.Assembly.cancel_assembly()
+  describe "replay_assembly/1" do
+    test "replays an assembly" do
+      Transloaditex.RequestMock
+      |> expect(:post, fn path, data ->
+        assert path == "/assemblies/abc123/replay"
+        assert data == %{reparse_template: 0}
+
+        @success_response
+      end)
+
+      result = Transloaditex.Assembly.replay_assembly("abc123")
+      assert @success_response == result
+    end
+
+    test "replays with options" do
+      Transloaditex.RequestMock
+      |> expect(:post, fn path, data ->
+        assert path == "/assemblies/abc123/replay"
+        assert data == %{reparse_template: 1, notify_url: "https://example.com/webhook"}
+
+        @success_response
+      end)
+
+      result =
+        Transloaditex.Assembly.replay_assembly("abc123", %{
+          reparse_template: 1,
+          notify_url: "https://example.com/webhook"
+        })
+
+      assert @success_response == result
     end
   end
 end

@@ -7,8 +7,6 @@ defmodule Transloaditex.RequestBehaviour do
   @callback post(path :: binary, data :: map) :: any
   @callback post(path :: binary) :: any
   @callback put(path :: binary, data :: map) :: any
-  @callback delete(path :: binary, data :: binary) :: any
+  @callback delete(path :: binary, data :: map) :: any
   @callback delete(path :: binary) :: any
-  @callback to_url(url_or_endpoint :: binary) :: any
-  @callback to_url(endpoint :: binary, id :: binary) :: any
 end

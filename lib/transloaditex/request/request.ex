@@ -1,24 +1,22 @@
 defmodule Transloaditex.Request do
-  alias Req
-  # alias Req.Response
-
   @api_uri "https://api2.transloadit.com"
-  @headers %{"Transloadit-Client": "elixir-sdk:0.1.0"}
+  @version Mix.Project.config()[:version]
+  @headers %{"transloadit-client" => "elixir-sdk:#{@version}"}
 
   @doc """
-  Makes a HTTP GET request
+  Makes a HTTP GET request.
 
-  ## Args:
+  ## Args
 
-    * `path` (string) - URL path to which the request should be made.
-    * `params` (map) - Optional params to send along with the request. Default is an empty map.
+    * `path` - URL path to which the request should be made.
+    * `params` - Optional params to send along with the request.
 
-  ## Returns:
+  ## Returns
 
-    An instance of `Transloaditex.Response`.
+    A `Transloaditex.Response` struct or `{:error, reason}`.
   """
-  def get(path, params) do
-    url = get_full_url(path)
+  def get(path, params \\ %{}) do
+    url = to_full_url(path)
     payload = to_payload(params)
 
     Transloaditex.Response.as_response(fn ->
@@ -26,114 +24,75 @@ defmodule Transloaditex.Request do
     end)
   end
 
-  def get(path) do
-    get(path, %{})
-  end
-
   @doc """
-  Makes a HTTP POST request
+  Makes a HTTP POST request.
 
-  ## Args:
+  ## Args
 
-    * `path` (string) - URL path to which the request should be made.
-    * `data` (Optional[map]) - The body of the request. THis would be stored under the 'params' field.
-    * `extra_data` (Optional[map]) - This is also added to the body of the request but not under the 'params' field.
-    * `files` (Optional[map]) - Files to upload with the request. THis should be a key, value pair of field name and file stream respectively.
+    * `path` - URL path to which the request should be made.
+    * `data` - The body of the request, stored under the 'params' field.
+    * `extra_data` - Additional body fields not nested under 'params'.
 
-  ## Returns:
+  ## Returns
 
-    An instance of `Transloaditex.Response`.
+    A `Transloaditex.Response` struct or `{:error, reason}`.
   """
-  def post(path, data, extra_data) do
-    url = get_full_url(path)
-    payload = to_payload(data)
-
-    payload = Map.merge(payload, extra_data || %{})
-
-    opts = [
-      headers: @headers,
-      form: payload
-    ]
+  def post(path, data \\ %{}, extra_data \\ %{}) do
+    url = to_full_url(path)
+    payload = to_payload(data) |> Map.merge(extra_data || %{})
 
     Transloaditex.Response.as_response(fn ->
-      Req.post(url, opts)
+      Req.post(url, headers: @headers, form: payload)
     end)
   end
 
-  def post(path, data), do: post(path, data, %{})
-
-  def post(path), do: post(path, %{}, %{})
-
   @doc """
-  Makes a HTTP PUT request
+  Makes a HTTP PUT request.
   """
   def put(path, data) do
-    url = get_full_url(path)
+    url = to_full_url(path)
     payload = to_payload(data)
 
-    opts = [
-      headers: @headers,
-      form: payload
-    ]
-
     Transloaditex.Response.as_response(fn ->
-      Req.put(url, opts)
+      Req.put(url, headers: @headers, form: payload)
     end)
   end
 
   @doc """
-  Makes a HTTP DELETE request
+  Makes a HTTP DELETE request.
   """
-  def delete(path, data) do
-    url = get_full_url(path)
+  def delete(path, data \\ %{}) do
+    url = to_full_url(path)
     payload = to_payload(data)
 
-    opts = [
-      headers: @headers,
-      form: payload
-    ]
-
     Transloaditex.Response.as_response(fn ->
-      Req.delete(url, opts)
+      Req.delete(url, headers: @headers, form: payload)
     end)
   end
 
-  def delete(path) do
-    delete(path, %{})
-  end
+  @doc """
+  Converts a URL string or an endpoint + id pair into a full URL path.
 
+  Returns the URL string on success, or `{:error, reason}` on failure.
+  """
   def to_url(url_or_endpoint) when is_binary(url_or_endpoint) do
-    case is_url?(url_or_endpoint) do
-      true -> url_or_endpoint
-      false -> {:error, "Invalid or missing parameters. Expecting valid url, or endpoint and id"}
+    if url?(url_or_endpoint) do
+      url_or_endpoint
+    else
+      {:error, "Invalid or missing parameters. Expecting valid url, or endpoint and id"}
     end
   end
 
   def to_url(endpoint, id) when is_binary(endpoint) and is_binary(id) do
     cond do
-      is_url?(id) ->
-        to_url(id)
+      url?(id) ->
+        id
+
+      valid_id?(id) ->
+        "/#{String.trim(endpoint, "/")}/#{id}"
 
       true ->
-        case is_valid_id?(id) do
-          true ->
-            endpoint =
-              cond do
-                !String.starts_with?(endpoint, "/") -> "/" <> endpoint
-                true -> endpoint
-              end
-
-            endpoint =
-              cond do
-                !String.ends_with?(endpoint, "/") -> endpoint <> "/"
-                true -> endpoint
-              end
-
-            "#{endpoint}#{id}"
-
-          false ->
-            {:error, "Invalid or missing parameters. Expecting valid url, or endpoint and id"}
-        end
+        {:error, "Invalid or missing parameters. Expecting valid url, or endpoint and id"}
     end
   end
 
@@ -141,7 +100,8 @@ defmodule Transloaditex.Request do
     data =
       Map.put(data, "auth", %{
         "key" => Application.get_env(:transloaditex, :auth_key),
-        "expires" => expires_datetime(Application.get_env(:transloaditex, :duration))
+        "expires" => format_expiry(Application.get_env(:transloaditex, :duration)),
+        "nonce" => generate_nonce()
       })
 
     json_data = Jason.encode!(data)
@@ -158,21 +118,18 @@ defmodule Transloaditex.Request do
     "sha384:#{signature}"
   end
 
-  defp expires_datetime(duration) do
-    utc_now = DateTime.utc_now()
-    new_datetime = DateTime.add(utc_now, duration)
-    format_datetime(new_datetime)
+  defp generate_nonce do
+    :crypto.strong_rand_bytes(16)
+    |> Base.encode16(case: :lower)
   end
 
-  defp format_datetime(datetime) do
-    DateTime.to_string(datetime)
-    |> String.replace("T", " ")
-    |> String.split(".")
-    |> hd()
-    |> Kernel.<>("+00:00")
+  defp format_expiry(duration) do
+    DateTime.utc_now()
+    |> DateTime.add(duration)
+    |> Calendar.strftime("%Y/%m/%d %H:%M:%S+00:00")
   end
 
-  defp get_full_url(url) do
+  defp to_full_url(url) do
     if String.starts_with?(url, ["http://", "https://"]) do
       url
     else
@@ -180,12 +137,12 @@ defmodule Transloaditex.Request do
     end
   end
 
-  defp is_url?(value) do
+  defp url?(value) do
     String.match?(
       value,
-      ~r/^((http|https)?:\/\/)(([a-zA-Z0-9\-]+\.)*)([a-zA-Z0-9\-]+\.[a-zA-Z]{2,})(\/[a-zA-Z0-9\-\/]*)?$/
+      ~r/^https?:\/\/(([a-zA-Z0-9\-]+\.)*)([a-zA-Z0-9\-]+\.[a-zA-Z]{2,})(\/[a-zA-Z0-9\-\/]*)?$/
     )
   end
 
-  defp is_valid_id?(value), do: String.match?(value, ~r/^[a-z0-9]+$/)
+  defp valid_id?(value), do: String.match?(value, ~r/^[a-z0-9]+$/)
 end

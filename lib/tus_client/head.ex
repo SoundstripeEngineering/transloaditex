@@ -5,31 +5,26 @@ defmodule TusClient.Head do
   require Logger
 
   def request(url, headers \\ [], opts \\ []) do
-    url
-    |> HTTPoison.head(headers, Utils.httpoison_opts([], opts))
-    |> Utils.maybe_follow_redirect(&parse/1, &request(&1, headers, opts))
+    req_opts = [method: :head, url: url, headers: headers] ++ Utils.req_options(opts)
+
+    case Req.request(req_opts) do
+      {:ok, %{status: status} = resp} when status in [200, 204] ->
+        process(resp)
+
+      {:ok, %{status: status}} when status in [403, 404, 410] ->
+        {:error, :not_found}
+
+      {:ok, resp} ->
+        Logger.error("HEAD response not handled: #{inspect(resp)}")
+        {:error, :generic}
+
+      {:error, err} ->
+        Logger.error("HEAD request failed: #{inspect(err)}")
+        {:error, :transport}
+    end
   end
 
-  defp parse({:ok, %{status_code: status} = resp}) when status in [200, 204] do
-    resp
-    |> process()
-  end
-
-  defp parse({:ok, %{status_code: status}}) when status in [403, 404, 410] do
-    {:error, :not_found}
-  end
-
-  defp parse({:ok, resp}) do
-    Logger.error("HEAD response not handled: #{inspect(resp)}")
-    {:error, :generic}
-  end
-
-  defp parse({:error, err}) do
-    Logger.error("HEAD request failed: #{inspect(err)}")
-    {:error, :transport}
-  end
-
-  defp process(%{headers: []}), do: {:error, :preconditions}
+  defp process(%{headers: headers}) when map_size(headers) == 0, do: {:error, :preconditions}
 
   defp process(%{headers: headers}) do
     with {:ok, offset} <- get_upload_offset(headers),

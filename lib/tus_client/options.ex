@@ -5,27 +5,23 @@ defmodule TusClient.Options do
   require Logger
 
   def request(url, headers \\ [], opts \\ []) do
-    url
-    |> HTTPoison.options(headers, Utils.httpoison_opts([], opts))
-    |> Utils.maybe_follow_redirect(&parse/1, &request(&1, headers, opts))
+    req_opts = [method: :options, url: url, headers: headers] ++ Utils.req_options(opts)
+
+    case Req.request(req_opts) do
+      {:ok, %{status: status} = resp} when status in [200, 204] ->
+        process(resp)
+
+      {:ok, resp} ->
+        Logger.error("OPTIONS response not handled: #{inspect(resp)}")
+        {:error, :generic}
+
+      {:error, err} ->
+        Logger.error("OPTIONS request failed: #{inspect(err)}")
+        {:error, :transport}
+    end
   end
 
-  defp parse({:ok, %{status_code: status} = resp}) when status in [200, 204] do
-    resp
-    |> process()
-  end
-
-  defp parse({:ok, resp}) do
-    Logger.error("OPTIONS response not handled: #{inspect(resp)}")
-    {:error, :generic}
-  end
-
-  defp parse({:error, err}) do
-    Logger.error("OPTIONS request failed: #{inspect(err)}")
-    {:error, :transport}
-  end
-
-  defp process(%{headers: []}), do: {:error, :not_supported}
+  defp process(%{headers: headers}) when map_size(headers) == 0, do: {:error, :not_supported}
 
   defp process(%{headers: headers}) do
     with :ok <- check_supported_protocol(headers),
@@ -41,9 +37,6 @@ defmodule TusClient.Options do
          max_size: max_size,
          extensions: extensions
        }}
-    else
-      {:error, :unfulfilled_extensions} = err -> err
-      {:error, :not_supported} = err -> err
     end
   end
 
@@ -52,14 +45,12 @@ defmodule TusClient.Options do
       headers
       |> Utils.get_header("tus-extension")
       |> String.split(",")
-      |> Enum.map(fn x -> String.trim(x) end)
+      |> Enum.map(&String.trim/1)
 
-    creation = Enum.member?(supported, "creation")
-    # expiration = Enum.member?(supported, "expiration")
-
-    case creation do
-      true -> {:ok, supported}
-      false -> {:error, :unfulfilled_extensions}
+    if Enum.member?(supported, "creation") do
+      {:ok, supported}
+    else
+      {:error, :unfulfilled_extensions}
     end
   end
 

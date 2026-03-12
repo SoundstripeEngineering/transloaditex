@@ -19,41 +19,36 @@ defmodule TusClient.Patch do
       ]
       |> Utils.add_version_hdr()
       |> Utils.add_tus_content_type()
-      |> add_custom_headers(headers)
+      |> Kernel.++(headers)
       |> Enum.uniq()
 
-    url
-    |> HTTPoison.patch(data, hdrs, Utils.httpoison_opts([], opts))
-    |> Utils.maybe_follow_redirect(
-      &parse/1,
-      &do_request({:ok, data}, &1, offset, headers, opts)
-    )
-  end
+    req_opts =
+      [method: :patch, url: url, headers: hdrs, body: data] ++ Utils.req_options(opts)
 
-  defp do_request({:error, _} = err, _url, _offset, _headers, _opts), do: err
+    case Req.request(req_opts) do
+      {:ok, %{status: 204, headers: resp_headers}} ->
+        case Utils.get_header(resp_headers, "upload-offset") do
+          v when is_binary(v) -> {:ok, String.to_integer(v)}
+          _ -> {:error, :protocol}
+        end
 
-  defp parse({:ok, %{status_code: 204, headers: headers}}) do
-    case Utils.get_header(headers, "upload-offset") do
-      v when is_binary(v) -> {:ok, String.to_integer(v)}
-      _ -> {:error, :protocol}
+      {:ok, resp} ->
+        Logger.error("PATCH response not handled: #{inspect(resp)}")
+        {:error, :generic}
+
+      {:error, err} ->
+        Logger.error("PATCH request failed: #{inspect(err)}")
+        {:error, :transport}
     end
   end
 
-  defp parse({:ok, resp}) do
-    Logger.error("PATCH response not handled: #{inspect(resp)}")
-    {:error, :generic}
-  end
-
-  defp parse({:error, err}) do
-    Logger.error("PATCH request failed: #{inspect(err)}")
-    {:error, :transport}
-  end
+  defp do_request({:error, _} = err, _url, _offset, _headers, _opts), do: err
 
   defp do_read({:error, _} = err, _opts), do: err
 
   defp do_read({:ok, io_device}, opts) do
     data =
-      case :file.read(io_device, get_read_len(opts)) do
+      case :file.read(io_device, get_chunk_size(opts)) do
         :eof -> {:error, :eof}
         res -> res
       end
@@ -84,12 +79,8 @@ defmodule TusClient.Patch do
     {:error, :file_error}
   end
 
-  defp get_read_len(opts) do
-    opts
-    |> Keyword.get(:chunk_len, 4_194_304)
-  end
-
-  defp add_custom_headers(hdrs1, hdrs2) do
-    hdrs1 ++ hdrs2
+  # Accepts both :chunk_size (preferred) and :chunk_len (legacy) option names
+  defp get_chunk_size(opts) do
+    Keyword.get(opts, :chunk_size, Keyword.get(opts, :chunk_len, 4_194_304))
   end
 end

@@ -17,7 +17,7 @@ defmodule Transloaditex.MixProject do
       },
       source_url: @source_url,
       homepage_url: @source_url,
-      version: "0.2.4",
+      version: "0.3.0",
       elixir: "~> 1.15",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -56,11 +56,10 @@ defmodule Transloaditex.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:req, "~> 0.3.11"},
-      {:jason, "~> 1.4.0"},
-      {:httpoison, "~> 2.0"},
-      {:ex_doc, "~> 0.27", only: :dev, runtime: false},
-      {:mox, "~> 1.0.2", only: :test}
+      {:req, "~> 0.5"},
+      {:jason, "~> 1.4"},
+      {:ex_doc, "~> 0.34", only: :dev, runtime: false},
+      {:mox, "~> 1.1", only: :test}
     ]
   end
 
@@ -74,6 +73,7 @@ defmodule Transloaditex.MixProject do
       groups_for_modules: [
         endpoints: [
           Transloaditex.Assembly,
+          Transloaditex.AssemblyNotification,
           Transloaditex.Bill,
           Transloaditex.File,
           Transloaditex.Queue,
