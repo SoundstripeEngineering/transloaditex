@@ -3,7 +3,7 @@ defmodule Transloaditex.Response do
 
   def new({:ok, response}) do
     %Transloaditex.Response{
-      data: decode_json(response.body),
+      data: decode_body(response.body),
       status_code: response.status,
       headers: response.headers
     }
@@ -17,10 +17,19 @@ defmodule Transloaditex.Response do
   @doc false
   def headers(response), do: response.headers
 
-  defp decode_json(body) do
-    {:ok, data} = Jason.decode(body)
-    data
+  # Req auto-decodes JSON responses, so body may already be a map or list.
+  # Fall back to manual decode for string bodies, and return raw if not JSON.
+  defp decode_body(body) when is_map(body), do: body
+  defp decode_body(body) when is_list(body), do: body
+
+  defp decode_body(body) when is_binary(body) do
+    case Jason.decode(body) do
+      {:ok, data} -> data
+      {:error, _} -> body
+    end
   end
+
+  defp decode_body(body), do: body
 
   @doc false
   def as_response(func) when is_function(func, 0) do

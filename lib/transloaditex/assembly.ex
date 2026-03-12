@@ -1,27 +1,29 @@
 defmodule Transloaditex.Assembly do
-  alias Transloaditex.Request
   alias Transloaditex.Step
   alias Transloaditex.File
 
   @retries 5
   @chunk_size 5 * 1024 * 1024
 
-  def request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
-  def tus_client, do: Application.get_env(:transloaditex, :tus_adapter, TusClient)
+  defp request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
+  defp tus_client, do: Application.get_env(:transloaditex, :tus_adapter, TusClient)
 
   @doc """
-  Create a new assembly
+  Create a new assembly.
 
-  ## Args:
+  ## Options
 
-    * `options` (map) - ...
+    * `:steps` - List of step maps built with `Transloaditex.Step`
+    * `:files` - List of file maps built with `Transloaditex.File`
+    * `:wait` - Whether to poll until assembly completes (default: `false`)
+    * `:resumable` - Whether to use resumable (TUS) uploads (default: `true`)
+    * `:retries` - Maximum retry/poll attempts (default: 5)
 
-  ## Returns:
+  ## Returns
 
-    An instance of `Transloaditex.Response`.
+    A `Transloaditex.Response` struct or `{:error, reason}`.
   """
-
-  def create_assembly(options) do
+  def create_assembly(options) when is_map(options) do
     steps_opt = Map.get(options, :steps, [])
     files = Map.get(options, :files, [])
     wait = Map.get(options, :wait, false)
@@ -30,166 +32,161 @@ defmodule Transloaditex.Assembly do
 
     steps = Step.get_steps(steps_opt)
 
-    response =
-      case resumable do
-        true ->
-          if length(files) > 0 do
-            extra_data = %{"tus_num_expected_upload_files" => Jason.encode!(length(files))}
-            response = request().post("/assemblies", %{steps: steps}, extra_data)
+    response = post_assembly(steps, files, resumable)
 
-            do_tus_upload(%{
-              files: files,
-              assembly_url: response.data["assembly_url"],
-              assembly_ssl_url: response.data["assembly_ssl_url"],
-              tus_url: response.data["tus_url"],
-              max_retries: retries
-            })
+    cond do
+      match?({:error, _}, response) ->
+        response
 
-            response
+      rate_limit_reached?(response.data) and retries > 0 ->
+        retry_after_rate_limit(response, options, retries)
+
+      true ->
+        with :ok <- upload_files(response, files, resumable, retries) do
+          if wait do
+            wait_for_completion(response, retries)
           else
-            request().post("/assemblies", %{steps: steps})
+            response
           end
-
-        false ->
-          request().post("/assemblies", %{steps: steps}, %{
-            files: Jason.encode!(File.get_files(files))
-          })
-      end
-
-    wait_result = if wait, do: wait_for_assembly_finish(response, retries), else: {:ok}
-
-    if wait_result == {:ok} do
-      case rate_limit_reached(response.data) and retries > 0 do
-        true ->
-          sleep_time = response.data["info"]["retryIn"] || 1
-
-          :timer.sleep(sleep_time * 1_000)
-
-          create_assembly(%{
-            steps: steps_opt,
-            files: files,
-            wait: wait,
-            resumable: resumable,
-            retries: retries - 1
-          })
-
-        false ->
-          response
-      end
-    else
-      wait_result
+        end
     end
   end
 
-  def create_assembly(), do: {:error, "Missing or invalid parameters"}
+  def create_assembly(_), do: {:error, "Missing or invalid parameters"}
 
   @doc """
-  Get the assembly specified by assemby id or assembly url
+  Get the assembly specified by assembly id or assembly url.
 
-  ## Args:
+  ## Args
 
-    * `assembly` (str) - One of assembly id or assembly url
+    * `assembly` - Assembly id or full assembly url
 
-  ## Returns:
+  ## Returns
 
-    An instance of `Transloaditex.Response`.
+    A `Transloaditex.Response` struct or `{:error, reason}`.
   """
   def get_assembly(assembly) when is_binary(assembly) do
-    url = Request.to_url("assemblies", assembly)
-    request().get(url)
+    case Transloaditex.Request.to_url("assemblies", assembly) do
+      {:error, _} = error -> error
+      url -> request().get(url)
+    end
   end
 
   def get_assembly(_), do: {:error, "Missing or invalid argument. Provide an assembly id or url"}
-  def get_assembly(), do: {:error, "Missing or invalid argument. Provide an assembly id or url"}
 
   @doc """
-  Get the list of assemblies.
+  List assemblies with optional filter parameters.
 
-  ## Args:
-
-    * `options` (Optional[map) -
-      params to send along with the request. Please see
-      https://transloadit.com/docs/api-docs/#25-retrieve-assembly-list for available options.
-
-  ## Returns:
-
-    An instance of `Transloaditex.Response`.
+  See https://transloadit.com/docs/api/assemblies-get/ for available options.
   """
-  def list_assemblies(params), do: request().get("/assemblies", params)
-
-  def list_assemblies(), do: list_assemblies(%{})
+  def list_assemblies(params \\ %{}), do: request().get("/assemblies", params)
 
   @doc """
-  Cancel the assembly specified by either assembly_id or assembly_url
-
-  ## Args:
-
-    * `assembly` (str) - One of assembly_id or assembly_url
-
-  ## Returns:
-
-    An instance of `Transloaditex.Response`.
+  Cancel the assembly specified by assembly id or assembly url.
   """
-  def cancel_assembly(assembly) do
-    url = Request.to_url("assemblies", assembly)
-
-    request().delete(url)
+  def cancel_assembly(assembly) when is_binary(assembly) do
+    case Transloaditex.Request.to_url("assemblies", assembly) do
+      {:error, _} = error -> error
+      url -> request().delete(url)
+    end
   end
 
-  def cancel_assembly(), do: {:error, "Missing parameter. Provide an assembly id or url"}
+  def cancel_assembly(_), do: {:error, "Invalid argument. Provide an assembly id or url"}
 
-  defp do_tus_upload(options) do
-    Enum.each(Map.get(options, :files, []), fn file_map ->
-      [{field_name, file_path}] = Map.to_list(file_map)
+  @doc """
+  Replay an existing assembly.
 
-      metadata = %{
-        assembly_url: Map.get(options, :assembly_url),
-        assembly_ssl_url: Map.get(options, :assembly_ssl_url),
-        fieldname: field_name,
-        filename: Path.basename(file_path)
-      }
+  ## Args
 
-      tus_client().upload(
-        Map.get(options, :tus_url),
-        Path.absname(file_path),
-        [
-          {:max_retries, Map.get(options, :max_retries, @retries)},
-          {:chunk_size, @chunk_size},
-          {:metadata, metadata}
-        ]
-      )
-    end)
+    * `assembly_id` - The assembly id to replay
+    * `options` - Optional map with keys: `:notify_url`, `:reparse_template`,
+      `:steps`, `:template_id`, `:fields`
+
+  ## Returns
+
+    A `Transloaditex.Response` struct or `{:error, reason}`.
+  """
+  def replay_assembly(assembly_id, options \\ %{}) when is_binary(assembly_id) do
+    data = Map.put_new(options, :reparse_template, 0)
+    request().post("/assemblies/#{assembly_id}/replay", data)
   end
 
-  defp wait_for_assembly_finish(_response, 0),
+  # Private helpers
+
+  defp post_assembly(steps, files, true = _resumable) do
+    if length(files) > 0 do
+      extra_data = %{"tus_num_expected_upload_files" => Jason.encode!(length(files))}
+      request().post("/assemblies", %{steps: steps}, extra_data)
+    else
+      request().post("/assemblies", %{steps: steps})
+    end
+  end
+
+  defp post_assembly(steps, files, false = _resumable) do
+    request().post("/assemblies", %{steps: steps}, %{
+      files: Jason.encode!(File.get_files(files))
+    })
+  end
+
+  defp retry_after_rate_limit(response, options, retries) do
+    sleep_time = get_in(response.data, ["info", "retryIn"]) || 1
+    :timer.sleep(sleep_time * 1_000)
+    create_assembly(Map.put(options, :retries, retries - 1))
+  end
+
+  defp upload_files(_response, _files, false, _retries), do: :ok
+  defp upload_files(_response, [], _resumable, _retries), do: :ok
+
+  defp upload_files(response, files, true, retries) do
+    results =
+      Enum.map(files, fn file_map ->
+        [{field_name, file_path}] = Map.to_list(file_map)
+
+        metadata = %{
+          assembly_url: response.data["assembly_url"],
+          assembly_ssl_url: response.data["assembly_ssl_url"],
+          fieldname: field_name,
+          filename: Path.basename(file_path)
+        }
+
+        tus_client().upload(
+          response.data["tus_url"],
+          Path.absname(file_path),
+          max_retries: retries,
+          chunk_size: @chunk_size,
+          metadata: metadata
+        )
+      end)
+
+    case Enum.find(results, &match?({:error, _}, &1)) do
+      nil -> :ok
+      error -> error
+    end
+  end
+
+  defp wait_for_completion(_response, 0),
     do: {:error, "Max retries reached without completion."}
 
-  defp wait_for_assembly_finish(response, retries) when retries > 0 do
-    if !assembly_finished?(response) do
-      sleep_time =
-        Map.get(response.data, "info", %{})
-        |> Map.get("retryIn", 1)
-
-      :timer.sleep(sleep_time * 1_000)
-
-      response = get_assembly(Map.get(response.data, "assembly_ssl_url"))
-      wait_for_assembly_finish(response, retries - 1)
+  defp wait_for_completion(response, retries) do
+    if assembly_finished?(response) do
+      response
     else
-      {:ok}
+      sleep_time = get_in(response.data, ["info", "retryIn"]) || 1
+      :timer.sleep(sleep_time * 1_000)
+      updated_response = get_assembly(response.data["assembly_ssl_url"])
+      wait_for_completion(updated_response, retries - 1)
     end
   end
 
   defp assembly_finished?(response) do
     status = Map.get(response.data, "ok")
-    is_aborted = status == "REQUEST_ABORTED"
-    is_canceled = status == "ASSEMBLY_CANCELED"
-    is_completed = status == "ASSEMBLY_COMPLETED"
-    error = Map.get(response, "error")
-    is_failed = !is_nil(error)
-    is_fetch_rate_limit = error == "ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED"
+    error = Map.get(response.data, "error")
 
-    is_aborted or is_canceled or is_completed or (is_failed and not is_fetch_rate_limit)
+    terminal_status = status in ["ASSEMBLY_COMPLETED", "ASSEMBLY_CANCELED", "REQUEST_ABORTED"]
+    failed = not is_nil(error) and error != "ASSEMBLY_STATUS_FETCHING_RATE_LIMIT_REACHED"
+
+    terminal_status or failed
   end
 
-  defp rate_limit_reached(response), do: Map.get(response, "error") == "RATE_LIMIT_REACHED"
+  defp rate_limit_reached?(data), do: Map.get(data, "error") == "RATE_LIMIT_REACHED"
 end

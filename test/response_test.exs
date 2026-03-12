@@ -37,6 +37,19 @@ defmodule Transloaditex.ResponseTest do
     } do
       assert Response.new(test_function_error.()) == {:error, :some_error_reason}
     end
+
+    test "handles already-decoded map body (Req auto-decode)" do
+      response = Response.new({:ok, %{body: %{"key" => "value"}, status: 200, headers: %{}}})
+      assert response.data == %{"key" => "value"}
+    end
+
+    test "handles non-JSON string body gracefully" do
+      response =
+        Response.new({:ok, %{body: "<html>Server Error</html>", status: 500, headers: %{}}})
+
+      assert response.data == "<html>Server Error</html>"
+      assert response.status_code == 500
+    end
   end
 
   describe "status_code/1 and headers/1" do

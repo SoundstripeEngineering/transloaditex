@@ -1,32 +1,30 @@
-# defmodule Transloaditex do
-#   @moduledoc """
-#   Transloaditex is an Elixir implmenetation of [Transloadit API]{https://transloadit.com/docs/api/}
+defmodule Transloaditex do
+  @moduledoc """
+  Transloaditex is an Elixir implementation of the [Transloadit API](https://transloadit.com/docs/api/).
 
-#   ## Installation
+  ## Installation
 
-#   The package can be installed by adding `transloaditex` to your list of dependencies in `mix.exs`:
+  Add `transloaditex` to your list of dependencies in `mix.exs`:
 
-#   ```elixir
-#   # mix.exs
-#   def deps do
-#   [
-#     {:transloaditex, "~> 0.1.0}
-#   ]
-#   ```
+      def deps do
+        [
+          {:transloaditex, "~> 0.3.0"}
+        ]
+      end
 
-#   ### Configuration
+  ## Configuration
 
-#   Transloaditex has the following config items:
+  Transloaditex requires the following config items:
 
-#     * `auth_key` (string) - Auth key...
-#     * `auth_secret` (string) - Auth secret...
-#     * `max_retries` (Optional[int]) - Maximum number of retries before timing out
-#     * `duration` (Optional[int]) - Amount of time for auth expiration, value is in seconds
+    * `auth_key` (string) - Your Transloadit Auth Key
+    * `auth_secret` (string) - Your Transloadit Auth Secret
+    * `max_retries` (integer) - Maximum number of retries before timing out (default: 10)
+    * `duration` (integer) - Auth expiration time in seconds (default: 300)
 
-#       config :transloaditex,
-#         auth_key: "1526fdc376af415795be46f6c2b979a6",
-#         auth_secret: "a2dd4f8707164d2bb0738cee70056c6ed15b4c19",
-#         max_retries: 10,
-#         duration: 300
-#   """
-# end
+      config :transloaditex,
+        auth_key: "your_auth_key",
+        auth_secret: "your_auth_secret",
+        max_retries: 10,
+        duration: 300
+  """
+end

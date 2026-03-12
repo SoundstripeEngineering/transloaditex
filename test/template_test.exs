@@ -15,7 +15,8 @@ defmodule Transloaditex.TemplateTest do
 
         assert params == %{
                  name: "resize_image",
-                 template: %{"resize" => %{height: 70, robot: "/image/resize", width: 70}}
+                 template:
+                   Jason.encode!(%{"resize" => %{height: 70, robot: "/image/resize", width: 70}})
                }
 
         @success_response
@@ -38,22 +39,15 @@ defmodule Transloaditex.TemplateTest do
     end
   end
 
-  describe "create_template/0" do
-    test "it is missing arguments" do
-      result = Transloaditex.Template.create_template()
-
-      assert {:error,
-              "Missing or invalid arguments. Provide a name and either list of steps or JSON Encoded params"} ==
-               result
-    end
-  end
-
   describe "update_template/2" do
-    test "it updates the template" do
+    test "it updates the template with a list of steps" do
       Transloaditex.RequestMock
       |> expect(:put, fn path, params ->
         assert path == "/templates/123abc"
-        assert params == %{template: %{steps: %{"step_name" => %{robot: "/image/resize"}}}}
+
+        assert params == %{
+                 template: Jason.encode!(%{"step_name" => %{robot: "/image/resize"}})
+               }
 
         @success_response
       end)
@@ -66,21 +60,35 @@ defmodule Transloaditex.TemplateTest do
       assert @success_response == result
     end
 
+    test "it updates the template with a map of params" do
+      Transloaditex.RequestMock
+      |> expect(:put, fn path, params ->
+        assert path == "/templates/123abc"
+
+        assert params == %{
+                 name: "new_name",
+                 template: Jason.encode!(%{"step_name" => %{robot: "/image/resize"}}),
+                 require_signature_auth: 1
+               }
+
+        @success_response
+      end)
+
+      result =
+        Transloaditex.Template.update_template("123abc", %{
+          name: "new_name",
+          steps: [%{"step_name" => %{robot: "/image/resize"}}],
+          require_signature_auth: 1
+        })
+
+      assert @success_response == result
+    end
+
     test "it has invalid arguments" do
       result = Transloaditex.Template.update_template(123, 123)
 
       assert {:error,
-              "Missing or invalid arguments. Provide a valid template id and list of steps"} ==
-               result
-    end
-  end
-
-  describe "update_template/0" do
-    test "it is missing arguments" do
-      result = Transloaditex.Template.update_template()
-
-      assert {:error,
-              "Missing or invalid arguments. Provide a valid template id and list of steps"} ==
+              "Missing or invalid arguments. Provide a valid template id and steps or params"} ==
                result
     end
   end
@@ -96,12 +104,10 @@ defmodule Transloaditex.TemplateTest do
       result = Transloaditex.Template.get_template("abc123")
       assert @success_response == result
     end
-  end
 
-  describe "get_template/0" do
-    test "missing argument" do
-      result = Transloaditex.Template.get_template()
-      assert {:error, "Missing arguments. Provide an template id or url"} == result
+    test "returns error for non-string argument" do
+      result = Transloaditex.Template.get_template(123)
+      assert {:error, "Invalid argument. Provide a template id or url"} == result
     end
   end
 
@@ -166,27 +172,12 @@ defmodule Transloaditex.TemplateTest do
     end
   end
 
-  describe "delete_template/0" do
-    test "it is missing the argument" do
-      assert {:error, "Missing argument. Provide a valid template url or template id"} ==
-               Transloaditex.Template.delete_template()
-    end
-  end
-
-  describe "get_template_id/0" do
-    test "when mising template id" do
-      result = Transloaditex.Template.get_template_id()
-      assert {:error, "Missing or invalid argument. Provide a valid template name"} == result
-    end
-  end
-
   describe "get_template_id/1" do
     test "when template id is not a string" do
       result = Transloaditex.Template.get_template_id(12345)
       assert {:error, "Missing or invalid argument. Provide a valid template name"} == result
     end
 
-    # Successful response, item found
     test "it gets the template_id when template exists" do
       mock_response = %Transloaditex.Response{
         status_code: 200,
@@ -196,7 +187,7 @@ defmodule Transloaditex.TemplateTest do
       Transloaditex.RequestMock
       |> expect(:get, fn path, params ->
         assert path == "/templates"
-        assert params == %{}
+        assert params == %{keywords: ["template_name"]}
         mock_response
       end)
 
@@ -204,7 +195,6 @@ defmodule Transloaditex.TemplateTest do
       assert id == "123"
     end
 
-    # Successful response, item not found
     test "it returns an error when template does not exist" do
       mock_response = %Transloaditex.Response{
         status_code: 200,
@@ -218,7 +208,6 @@ defmodule Transloaditex.TemplateTest do
                Transloaditex.Template.get_template_id("template_name")
     end
 
-    # Non-200 response
     test "it returns an error when API response is non-200" do
       mock_response = %Transloaditex.Response{status_code: 404}
 
@@ -229,7 +218,6 @@ defmodule Transloaditex.TemplateTest do
                Transloaditex.Template.get_template_id("template_name")
     end
 
-    # UNexpected response format
     test "it returns an error when API response format is unexpected" do
       mock_response = %Transloaditex.Response{status_code: 200, data: %{"unexpected" => "data"}}
 

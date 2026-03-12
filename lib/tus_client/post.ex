@@ -14,42 +14,33 @@ defmodule TusClient.Post do
     hdrs =
       [{"upload-length", to_string(size)}]
       |> Utils.add_version_hdr()
-      |> add_custom_headers(headers)
+      |> Kernel.++(headers)
       |> Enum.uniq()
       |> add_metadata(opts)
 
-    url
-    |> HTTPoison.post("", hdrs, Utils.httpoison_opts([], opts))
-    |> Utils.maybe_follow_redirect(
-      &parse/1,
-      &do_request({:ok, size}, &1, headers, opts)
-    )
+    req_opts =
+      [method: :post, url: url, headers: hdrs, body: ""] ++ Utils.req_options(opts)
+
+    case Req.request(req_opts) do
+      {:ok, %{status: 201} = resp} ->
+        process(resp)
+
+      {:ok, %{status: 413}} ->
+        {:error, :too_large}
+
+      {:ok, resp} ->
+        Logger.error("POST response not handled: #{inspect(resp)}")
+        {:error, :generic}
+
+      {:error, err} ->
+        Logger.error("POST request failed: #{inspect(err)}")
+        {:error, :transport}
+    end
   end
 
-  defp do_request(res, _url, _headers, _opts) do
-    res
-  end
+  defp do_request(err, _url, _headers, _opts), do: err
 
-  defp parse({:ok, %{status_code: 201} = resp}) do
-    resp
-    |> process()
-  end
-
-  defp parse({:ok, %{status_code: 413}}) do
-    {:error, :too_large}
-  end
-
-  defp parse({:ok, resp}) do
-    Logger.error("POST response not handled: #{inspect(resp)}")
-    {:error, :generic}
-  end
-
-  defp parse({:error, err}) do
-    Logger.error("POST request failed: #{inspect(err)}")
-    {:error, :transport}
-  end
-
-  defp process(%{headers: []}), do: {:error, :not_supported}
+  defp process(%{headers: headers}) when map_size(headers) == 0, do: {:error, :not_supported}
 
   defp process(%{headers: headers}) do
     case get_location(headers) do
@@ -77,14 +68,10 @@ defmodule TusClient.Post do
       md when is_map(md) ->
         new_md = cleanup_metadata(md)
 
-        new_md
-        |> Enum.empty?()
-        |> case do
-          true ->
-            headers
-
-          false ->
-            headers ++ [{"upload-metadata", encode_metadata(new_md)}]
+        if Enum.empty?(new_md) do
+          headers
+        else
+          headers ++ [{"upload-metadata", encode_metadata(new_md)}]
         end
 
       _ ->
@@ -94,17 +81,13 @@ defmodule TusClient.Post do
 
   defp cleanup_metadata(md) do
     md
-    |> Enum.map(fn {k, v} ->
-      {"#{k}", v}
-    end)
+    |> Enum.map(fn {k, v} -> {"#{k}", v} end)
     |> Enum.filter(fn {k, _v} ->
-      case k =~ ~r/^[a-z|A-Z|0-9|_|-|\.]+$/ do
-        true ->
-          true
-
-        false ->
-          Logger.warning("Discarding invalid key #{k}")
-          false
+      if k =~ ~r/^[a-zA-Z0-9_\-\.]+$/ do
+        true
+      else
+        Logger.warning("Discarding invalid key #{k}")
+        false
       end
     end)
     |> Map.new()
@@ -113,13 +96,9 @@ defmodule TusClient.Post do
   defp encode_metadata(md) do
     md
     |> Enum.map(fn {k, v} ->
-      value = v |> to_string |> Base.encode64()
+      value = v |> to_string() |> Base.encode64()
       "#{k} #{value}"
     end)
     |> Enum.join(",")
-  end
-
-  defp add_custom_headers(hdrs1, hdrs2) do
-    hdrs1 ++ hdrs2
   end
 end

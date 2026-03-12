@@ -1,17 +1,17 @@
 defmodule Transloaditex.Bill do
-  def request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
+  defp request, do: Application.get_env(:transloaditex, :request, Transloaditex.Request)
 
   @doc """
   Get the bill for the specified month and year.
 
-  ## Args:
+  ## Args
 
-    * `month` (int) - e.g. 1 for January
-    * `year` (int)
+    * `month` - Integer month (1-12)
+    * `year` - Integer year
 
-  ## Returns:
+  ## Returns
 
-    An instance of `Transloaditex.Response`.
+    A `Transloaditex.Response` struct or `{:error, reason}`.
   """
   def get_bill(month, year) when is_integer(month) and is_integer(year) do
     if month >= 1 and month <= 12 do
@@ -23,5 +23,4 @@ defmodule Transloaditex.Bill do
   end
 
   def get_bill(_, _), do: {:error, "Month and year should be integers"}
-  def get_bill(), do: {:error, "Month and year should be integers"}
 end
